@@ -1,5 +1,7 @@
 # openapi-yup-generator
 
+**This package is under heavy development and will change some specifications.**
+
 CLI tool for generating yup definitions from openapi3.yaml
 
 # Install
