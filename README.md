@@ -8,6 +8,10 @@ CLI tool for generating yup definitions from openapi3.yaml
 
 //TBD
 
+You can download binary from [release](https://github.com/igtm/openapi-yup-generator/releases).
+
+I will setup easy ways to install...
+
 # Usage
 
 ```
