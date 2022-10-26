@@ -1,0 +1,5 @@
+{
+  "description_as_label": false,
+  "input": "openapi3.yaml",
+  "output": "yup-defs.js"
+}

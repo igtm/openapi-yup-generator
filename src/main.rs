@@ -3,52 +3,81 @@ use std::io::Write;
 use convert_case::{Case, Casing};
 use jsonc_parser::{parse_to_value, JsonValue, JsonObject};
 use std::collections::HashMap;
+use clap::Parser;
 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+   /// openapi3 yaml file name 
+   #[arg(short, long)]
+   file: Option<String>,
+
+   /// output file name
+   #[arg(short, long)]
+   out: Option<String>,
+
+   /// config file name
+   #[arg(short, long)]
+   config: Option<String>,
+}
 
 static INITIAL_COMMENTS: &'static str = "/* tslint:disable */\n/* eslint-disable */\n//DO NOT EDIT MANUALLY\n\n";
 static INITIAL_IMPORTS: &'static str = "import { object, string, number, date, array, bool } from 'yup';\n\n";
 static FIELD_INDENTS: &'static str = "  ";
 static FILE_NAME_INPUT_DEFAULT: &'static str = "openapi3.yaml";
 static FILE_NAME_OUTPUT_DEFAULT: &'static str = "yup-defs.js";
-static FILE_NAME_SETTINGS: &'static str = "openapi-yup-generator-settings.jsonc";
+static FILE_NAME_CONFIG: &'static str = "openapi-yup-generator-config.jsonc";
 
 fn main() {
-  let settings = fs::read_to_string(FILE_NAME_SETTINGS).unwrap_or("{}".to_owned());
-  let json_value = parse_to_value(&settings, &Default::default()).unwrap().unwrap();
-  let settings = match json_value {
+  // args
+  let args = Args::parse();
+
+  let mut config_file_name = FILE_NAME_CONFIG.to_owned();
+  if let Some(i) =  args.config {
+    config_file_name = i.to_string();
+  }
+  let config_string = fs::read_to_string(config_file_name).unwrap_or("{}".to_owned());
+  let config_json_value = parse_to_value(&config_string, &Default::default()).unwrap().unwrap();
+  let config = match config_json_value {
     JsonValue::Object(s) => s,
     _ => JsonObject::new(HashMap::new()),
   };
 
-  let mut input = FILE_NAME_INPUT_DEFAULT.to_owned();
-  if let Some(i) =  settings.get_string("input") {
-    input = i.to_string();
+  let mut file = FILE_NAME_INPUT_DEFAULT.to_owned();
+  if let Some(i) =  config.get_string("file") {
+    file = i.to_string();
+  }
+  if let Some(i) =  args.file {
+    file = i.to_string();
   }
 
-  let mut output = FILE_NAME_OUTPUT_DEFAULT.to_owned();
-  if let Some(o) =  settings.get_string("output") {
-    output = o.to_string();
+  let mut out = FILE_NAME_OUTPUT_DEFAULT.to_owned();
+  if let Some(o) =  config.get_string("out") {
+    out = o.to_string();
   }
-  let file = fs::File::create(output).unwrap();
+  if let Some(o) =  args.out {
+    out = o.to_string();
+  }
+  let out_file = fs::File::create(out).unwrap();
 
-  match oas3::from_path(input) {
-    Ok(spec) => print_openapi(spec, &settings, file),
+  match oas3::from_path(file) {
+    Ok(spec) => write_yup_defs(spec, &config, out_file),
     Err(err) => println!("error: {:?}", err)
   }
 }
 
-fn print_openapi(s: oas3::Spec, settings: &JsonObject, mut file: File) {
+fn write_yup_defs(s: oas3::Spec, config: &JsonObject, mut out_file: File) {
 
   // initial
-  file.write_all(INITIAL_COMMENTS.as_bytes()).unwrap();
-  file.write_all(INITIAL_IMPORTS.as_bytes()).unwrap();
+  out_file.write_all(INITIAL_COMMENTS.as_bytes()).unwrap();
+  out_file.write_all(INITIAL_IMPORTS.as_bytes()).unwrap();
   
   for a in &s.components {
     for (schema_name, or) in a.schemas.iter() {
       let scheme = or.resolve( &s).unwrap();
 
 
-      file.write_all(format!("export const {} = object({{\n", schema_name.to_case(Case::UpperCamel)).as_bytes()).unwrap();
+      out_file.write_all(format!("export const {} = object({{\n", schema_name.to_case(Case::UpperCamel)).as_bytes()).unwrap();
 
       for (prop_name, p) in scheme.properties.iter() {
         let scheme2 = p.resolve( &s).unwrap();
@@ -76,7 +105,7 @@ fn print_openapi(s: oas3::Spec, settings: &JsonObject, mut file: File) {
         }
 
         // [optional] label (from description)
-        if let Some(_) =  settings.get_boolean("description_as_label") {
+        if let Some(_) =  config.get_boolean("description_as_label") {
           if let Some(description) = scheme2.description {
             str += &format!(".label('{}')", description);
           }
@@ -91,10 +120,10 @@ fn print_openapi(s: oas3::Spec, settings: &JsonObject, mut file: File) {
 
         // end
         str += ",\n";
-        file.write_all(str.as_bytes()).unwrap();
+        out_file.write_all(str.as_bytes()).unwrap();
       }
 
-      file.write_all(format!("}});\n\n").as_bytes()).unwrap();
+      out_file.write_all(format!("}});\n\n").as_bytes()).unwrap();
     }
   }
 
