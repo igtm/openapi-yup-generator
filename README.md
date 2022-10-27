@@ -4,13 +4,14 @@
 
 CLI tool for generating yup definitions from openapi3.yaml
 
-# Install
+# Installation
 
-//TBD
 
-You can download binary from [release](https://github.com/igtm/openapi-yup-generator/releases).
+```sh
+curl -sfL https://raw.githubusercontent.com/igtm/openapi-yup-generator/master/install.sh | sudo sh -s -- -b=/usr/local/bin
+```
 
-I will setup easy ways to install...
+You can also download old version binary from [release](https://github.com/igtm/openapi-yup-generator/releases).
 
 # Usage
 
