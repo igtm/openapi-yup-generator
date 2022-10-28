@@ -1,6 +1,6 @@
 [package]
 name = "openapi-yup-generator"
-version = "0.1.0"
+version = "0.0.4"
 edition = "2021"
 authors = ["igtm"]
 description = "CLI tool for generating yup definitions from openapi3.yaml"
@@ -12,4 +12,6 @@ license = "MIT"
 clap = { version = "4.0.18", features = ["derive"] }
 convert_case = "0.6.0"
 jsonc-parser = "0.21.0"
-oas3 = "0.2.1"
+openapiv3 = "1.0.1"
+serde_json = "1.0.87"
+serde_yaml = "0.9.14"

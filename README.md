@@ -19,7 +19,7 @@ You can also download old version binary from [release](https://github.com/igtm/
 Usage: openapi-yup-generator [OPTIONS]
 
 Options:
-  -f, --file <FILE>      openapi3 yaml file name
+  -f, --file <FILE>      openapi3 yaml or json file name
   -o, --out <OUT>        output file name
   -c, --config <CONFIG>  config file name
   -h, --help             Print help information

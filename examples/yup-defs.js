@@ -4,53 +4,50 @@
 
 import { object, string, number, date, array, bool } from 'yup';
 
+export const LightingSummary = object({
+  zones: array().optional(),
+  zoneStatus: array().optional(),
+});
+
+export const LightingZone = object({
+  id: string().optional(),
+  name: string().optional(),
+  deviceId: number().integer().optional(),
+  deviceType: string().optional(),
+  zone: string().optional(),
+});
+
+export const LightingZoneStatus = object({
+  id: string().optional(),
+  name: string().optional(),
+  lastUpdate: date().optional(),
+  level: number().integer().optional(),
+});
+
+export const TemperatureSummary = object({
+  zones: array().optional(),
+  zoneStatus: array().optional(),
+});
+
+export const TemperatureZone = object({
+  id: number().integer().required(),
+  name: string().required(),
+  inputPosition: number().integer().optional(),
+  outputPosition: number().integer().optional(),
+  zone: string().optional(),
+});
+
+export const TemperatueZoneStatus = object({
+  id: string().required(),
+  name: string().optional(),
+  value: number().required(),
+  units: string().optional(),
+  timestamp: date().required(),
+});
+
 export const ApiResponse = object({
   code: number().integer().optional(),
   message: string().optional(),
-});
-
-export const City = object({
-  country: string().optional(),
-  id: number().integer().optional(),
-  lat: number().optional(),
-  lon: number().optional(),
-  name: string().optional(),
-});
-
-export const DeviceRegistrationInfo = object({
-  id: string().optional(),
-  uri: string().optional(),
-});
-
-export const DeviceState = object({
-  id: string().optional(),
-  lastUpdate: string().optional(),
-  level: number().integer().optional(),
-  name: string().optional(),
-});
-
-export const Forecast = object({
-  clouds: number().integer().optional(),
-  date: string().optional(),
-  humidity: number().integer().optional(),
-  pressure: number().optional(),
-  temperature: object().optional(),
-  weather: object().optional(),
-  windSpeed: number().optional(),
-});
-
-export const ForecastResponse = object({
-  city: object().optional(),
-  values: array().optional(),
-});
-
-export const ForecastTemperature = object({
-  day: number().optional(),
-  evening: number().optional(),
-  high: number().optional(),
-  low: number().optional(),
-  morning: number().optional(),
-  night: number().optional(),
 });
 
 export const HeaterState = object({
@@ -58,50 +55,50 @@ export const HeaterState = object({
   state: string().optional(),
 });
 
-export const LightingSummary = object({
-  zoneStatus: array().optional(),
-  zones: array().optional(),
-});
-
-export const LightingZone = object({
-  deviceId: number().integer().optional(),
-  deviceType: string().optional(),
+export const DeviceState = object({
   id: string().optional(),
   name: string().optional(),
-  zone: string().optional(),
-});
-
-export const LightingZoneStatus = object({
-  id: string().optional(),
-  lastUpdate: string().optional(),
+  lastUpdate: date().optional(),
   level: number().integer().optional(),
+});
+
+export const ForecastResponse = object({
+  values: array().optional(),
+});
+
+export const Forecast = object({
+  date: date().optional(),
+  pressure: number().optional(),
+  humidity: number().integer().optional(),
+  windSpeed: number().optional(),
+  clouds: number().integer().optional(),
+});
+
+export const City = object({
+  id: number().integer().optional(),
   name: string().optional(),
+  lat: number().optional(),
+  lon: number().optional(),
+  country: string().optional(),
 });
 
-export const TemperatueZoneStatus = object({
-  id: string().required(),
-  name: string().optional(),
-  timestamp: string().required(),
-  units: string().optional(),
-  value: number().required(),
-});
-
-export const TemperatureSummary = object({
-  zoneStatus: array().optional(),
-  zones: array().optional(),
-});
-
-export const TemperatureZone = object({
-  id: number().integer().required(),
-  inputPosition: number().integer().optional(),
-  name: string().required(),
-  outputPosition: number().integer().optional(),
-  zone: string().optional(),
+export const ForecastTemperature = object({
+  low: number().optional(),
+  high: number().optional(),
+  morning: number().optional(),
+  day: number().optional(),
+  evening: number().optional(),
+  night: number().optional(),
 });
 
 export const WeatherForecast = object({
+  summary: string().optional(),
   description: string().optional(),
   icon: string().optional(),
-  summary: string().optional(),
+});
+
+export const DeviceRegistrationInfo = object({
+  uri: string().optional(),
+  id: string().optional(),
 });
 

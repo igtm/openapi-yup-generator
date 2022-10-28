@@ -4,6 +4,9 @@ use convert_case::{Case, Casing};
 use jsonc_parser::{parse_to_value, JsonValue, JsonObject};
 use std::collections::HashMap;
 use clap::Parser;
+use openapiv3::*;
+use serde_yaml;
+use serde_json;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -60,120 +63,140 @@ fn main() {
   }
   let out_file = fs::File::create(out).unwrap();
 
-  match oas3::from_path(file) {
-    Ok(spec) => write_yup_defs(spec, &config, out_file),
-    Err(err) => println!("error: {:?}", err)
+
+  // openapiv3
+  let f = std::fs::File::open(&file).unwrap();
+  let openapi: OpenAPI;
+  // detect ext
+  if file.as_str().ends_with(".json") {
+    openapi = serde_json::from_reader(f).expect("Could not deserialize input");
+  } else if file.as_str().ends_with(".yaml") || file.as_str().ends_with(".yml") {
+    openapi = serde_yaml::from_reader(f).expect("Could not deserialize input");
+  } else {
+    panic!("only json or yaml are supported, got {}.", file);
   }
+
+  write_yup_defs(openapi, &config, out_file)
+
 }
 
-fn write_yup_defs(s: oas3::Spec, config: &JsonObject, mut out_file: File) {
+fn write_yup_defs(s: OpenAPI, config: &JsonObject, mut out_file: File) {
+  let mut str = "".to_owned();
 
   // initial
-  out_file.write_all(INITIAL_COMMENTS.as_bytes()).unwrap();
-  out_file.write_all(INITIAL_IMPORTS.as_bytes()).unwrap();
+  str.push_str(INITIAL_COMMENTS);
+  str.push_str(INITIAL_IMPORTS);
   
   for a in &s.components {
     for (schema_name, or) in a.schemas.iter() {
-      let scheme = or.resolve( &s).unwrap();
+      let scheme = or.as_item().unwrap();
 
+      str += &format!("export const {} = object({{\n", schema_name.to_case(Case::UpperCamel));
 
-      out_file.write_all(format!("export const {} = object({{\n", schema_name.to_case(Case::UpperCamel)).as_bytes()).unwrap();
+      if let SchemaKind::Type(any_schema_type) = &scheme.schema_kind {
+        if let Type::Object(any_schema_object_type) = any_schema_type {
 
-      for (prop_name, p) in scheme.properties.iter() {
-        let scheme2 = p.resolve( &s).unwrap();
-        let schema_type_string = get_str(scheme2.schema_type);
-        let format_type_string = get_str(scheme2.format);
-        let mut str = format!("{}{}: {}()", FIELD_INDENTS, prop_name.to_case(Case::Camel), get_yup_type_name(&schema_type_string, &format_type_string));
+          for (prop_name, p) in any_schema_object_type.properties.iter() {
+            if let Some(any_schema_type2_item) = p.as_item() {
+              if let SchemaKind::Type(any_schema_type2) = &any_schema_type2_item.schema_kind {
 
+                match any_schema_type2 {
+                  Type::Array(x) => {
+                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "array()");
+                    // min/max
+                    if let Some(minimum) = x.min_items {
+                      str += &format!(".min({})", minimum);
+                    }
+                    if let Some(maximum) = x.max_items {
+                      str += &format!(".max({})", maximum);
+                    }
+                  },
+                  Type::Boolean{} => {
+                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "bool()");
+                  },
+                  Type::Integer(x) => {
+                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "number().integer()");
+                    // min/max
+                    if let Some(minimum) = x.minimum {
+                      str += &format!(".min({})", minimum);
+                    }
+                    if let Some(maximum) = x.maximum {
+                      str += &format!(".max({})", maximum);
+                    }
+                  },
+                  Type::Number(x) => {
+                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "number()");
+                    // min/max
+                    if let Some(minimum) = x.minimum {
+                      str += &format!(".min({})", minimum);
+                    }
+                    if let Some(maximum) = x.maximum {
+                      str += &format!(".max({})", maximum);
+                    }
+                  },
+                  Type::Object(x) => {
+                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "object()");
+                  },
+                  Type::String(x) => {
+                    let mut type_name = "string".to_owned();
+                    // type
+                    if let VariantOrUnknownOrEmpty::Item(fmt_item) = &x.format {
+                      match fmt_item {
+                        StringFormat::Date | StringFormat::DateTime => {
+                          type_name = "date".to_owned();
+                        },
+                        _ => {},
+                      }
+                    }
+                    str += &format!("{}{}: {}()", FIELD_INDENTS, prop_name.to_case(Case::Camel), type_name);
+                    // min/max
+                    if let Some(minimum) = x.min_length {
+                      str += &format!(".min({})", minimum);
+                    }
+                    if let Some(maximum) = x.max_length {
+                      str += &format!(".max({})", maximum);
+                    }
+                    // matches (from pattern)
+                    if let Some(pattern) = &x.pattern {
+                      str += &format!(".matches(new RegExp(\"{}\"))", pattern);
+                    }
 
-        // format
-        if let Some(fmt_name) = get_format_name(&schema_type_string, &format_type_string) {
-          str += &format!(".{}()", fmt_name);
-        }
+                    // format
+                    if let VariantOrUnknownOrEmpty::Unknown(fmt_name) = &x.format {
+                      if fmt_name == "email" {
+                        str += &format!(".{}()", fmt_name);
+                      }
+                    }
+                  },
+                }
 
-        // min/max
-        if let Some(minimum) = scheme2.minimum {
-          str += &format!(".min({})", minimum);
-        }
-        if let Some(maximum) = scheme2.maximum {
-          str += &format!(".max({})", maximum);
-        }
+                // [optional] label (from description)
+                if let Some(_) =  config.get_boolean("description_as_label") {
+                  if let Some(description) = &any_schema_type2_item.schema_data.description {
+                    str += &format!(".label('{}')", description);
+                  }
+                }
 
-        // matches (from pattern)
-        if let Some(pattern) = scheme2.pattern {
-          str += &format!(".matches(new RegExp(\"{}\"))", pattern);
-        }
+                // required/optional
+                if any_schema_object_type.required.iter().any(|pn| pn == prop_name) {
+                  str += ".required()";
+                } else {
+                  str += ".optional()";
+                }
 
-        // [optional] label (from description)
-        if let Some(_) =  config.get_boolean("description_as_label") {
-          if let Some(description) = scheme2.description {
-            str += &format!(".label('{}')", description);
+                // end
+                str += ",\n";
+              }
+            }
           }
-        }
-        
-        // required/optional
-        if scheme.required.iter().any(|pn| pn == prop_name) {
-          str += ".required()";
-        } else {
-          str += ".optional()";
-        }
 
-        // end
-        str += ",\n";
-        out_file.write_all(str.as_bytes()).unwrap();
+        }
       }
-
-      out_file.write_all(format!("}});\n\n").as_bytes()).unwrap();
+      
+      str += &format!("}});\n\n");
     }
   }
 
-}
+  out_file.write_all(str.as_bytes()).unwrap();
 
-// oas3 -> yup
-fn get_yup_type_name<'a>(schema_type: &Option<String>, format_name: &Option<String>) -> String {
-  return match schema_type {
-    Some(schema_type_str) => match schema_type_str.as_str() {
-      "Boolean" => "bool".to_owned(),
-      "Integer" => "number".to_owned(),
-      "Number" => "number".to_owned(),
-      "String" => match format_name {
-        Some(format_name_str) => match format_name_str.as_str() {
-        "date" => "date".to_owned(),
-        "date-time" => "date".to_owned(),
-        _ => "string".to_owned(),
-        },
-        None => "string".to_owned(),
-      },
-      "Array" => "array".to_owned(),
-      "Object" => "object".to_owned(),
-      _ => "".to_owned(),
-    }
-    None => "".to_owned(),
-  }
-}
-
-// oas3 -> yup
-fn get_format_name<'a>(schema_type: &Option<String>, format_name: &Option<String>) -> Option<String> {
-  return match schema_type {
-    Some(schema_type_str) => match schema_type_str.as_str() {
-      "Integer" =>  Some("integer".to_owned()),
-      "String" => match format_name {
-        Some(format_name_str) => match format_name_str.as_str() {
-          "email" => Some("email".to_owned()),
-          _ => None,
-        },
-        None => None,
-      },
-      _ => None,
-    },
-    None => None,
-  }
-}
-
-
-fn get_str<'a, T : std::fmt::Debug>(s: Option<T>) -> Option<String> {
-  if let Some(i) = s {
-    return Some(format!("{:?}", i))
-  }
-  return None
 }

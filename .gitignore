@@ -2,5 +2,6 @@
 /out
 /openapi-yup-generator-config.jsonc
 /openapi3.yaml
+/openapi3.json
 /yup-defs.*
 /openapi-yup-generator
