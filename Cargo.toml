@@ -1,6 +1,6 @@
 [package]
 name = "openapi-yup-generator"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 authors = ["igtm"]
 description = "CLI tool for generating yup definitions from openapi3.yaml"
