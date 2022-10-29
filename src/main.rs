@@ -7,6 +7,9 @@ use clap::Parser;
 use openapiv3::*;
 use serde_yaml;
 use serde_json;
+use once_cell::sync::Lazy;
+use regex::Regex;
+
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -89,114 +92,157 @@ fn write_yup_defs(s: OpenAPI, config: &JsonObject, mut out_file: File) {
   
   for a in &s.components {
     for (schema_name, or) in a.schemas.iter() {
-      let scheme = or.as_item().unwrap();
-
-      str += &format!("export const {} = object({{\n", schema_name.to_case(Case::UpperCamel));
+      let scheme = resolve(&s, or).unwrap();
 
       if let SchemaKind::Type(any_schema_type) = &scheme.schema_kind {
         if let Type::Object(any_schema_object_type) = any_schema_type {
 
-          for (prop_name, p) in any_schema_object_type.properties.iter() {
-            if let Some(any_schema_type2_item) = p.as_item() {
-              if let SchemaKind::Type(any_schema_type2) = &any_schema_type2_item.schema_kind {
+          str.push_str(&format!("export const {} = object({{\n", schema_name.to_case(Case::UpperCamel)));
 
-                match any_schema_type2 {
-                  Type::Array(x) => {
-                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "array()");
-                    // min/max
-                    if let Some(minimum) = x.min_items {
-                      str += &format!(".min({})", minimum);
-                    }
-                    if let Some(maximum) = x.max_items {
-                      str += &format!(".max({})", maximum);
-                    }
-                  },
-                  Type::Boolean{} => {
-                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "bool()");
-                  },
-                  Type::Integer(x) => {
-                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "number().integer()");
-                    // min/max
-                    if let Some(minimum) = x.minimum {
-                      str += &format!(".min({})", minimum);
-                    }
-                    if let Some(maximum) = x.maximum {
-                      str += &format!(".max({})", maximum);
-                    }
-                  },
-                  Type::Number(x) => {
-                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "number()");
-                    // min/max
-                    if let Some(minimum) = x.minimum {
-                      str += &format!(".min({})", minimum);
-                    }
-                    if let Some(maximum) = x.maximum {
-                      str += &format!(".max({})", maximum);
-                    }
-                  },
-                  Type::Object(x) => {
-                    str += &format!("{}{}: {}", FIELD_INDENTS, prop_name.to_case(Case::Camel), "object()");
-                  },
-                  Type::String(x) => {
-                    let mut type_name = "string".to_owned();
-                    // type
-                    if let VariantOrUnknownOrEmpty::Item(fmt_item) = &x.format {
-                      match fmt_item {
-                        StringFormat::Date | StringFormat::DateTime => {
-                          type_name = "date".to_owned();
-                        },
-                        _ => {},
-                      }
-                    }
-                    str += &format!("{}{}: {}()", FIELD_INDENTS, prop_name.to_case(Case::Camel), type_name);
-                    // min/max
-                    if let Some(minimum) = x.min_length {
-                      str += &format!(".min({})", minimum);
-                    }
-                    if let Some(maximum) = x.max_length {
-                      str += &format!(".max({})", maximum);
-                    }
-                    // matches (from pattern)
-                    if let Some(pattern) = &x.pattern {
-                      str += &format!(".matches(new RegExp(\"{}\"))", pattern);
-                    }
+          str.push_str(&write_object_type(&s, config, any_schema_object_type, indent_str_curry(FIELD_INDENTS.to_owned())));
 
-                    // format
-                    if let VariantOrUnknownOrEmpty::Unknown(fmt_name) = &x.format {
-                      if fmt_name == "email" {
-                        str += &format!(".{}()", fmt_name);
-                      }
-                    }
-                  },
-                }
-
-                // [optional] label (from description)
-                if let Some(_) =  config.get_boolean("description_as_label") {
-                  if let Some(description) = &any_schema_type2_item.schema_data.description {
-                    str += &format!(".label('{}')", description);
-                  }
-                }
-
-                // required/optional
-                if any_schema_object_type.required.iter().any(|pn| pn == prop_name) {
-                  str += ".required()";
-                } else {
-                  str += ".optional()";
-                }
-
-                // end
-                str += ",\n";
-              }
-            }
-          }
-
+          str.push_str(&format!("}});\n\n"));
         }
       }
-      
-      str += &format!("}});\n\n");
     }
   }
 
   out_file.write_all(str.as_bytes()).unwrap();
 
+}
+
+fn write_object_type(s: &OpenAPI, config: &JsonObject, object_type: &ObjectType, indent_str: impl Fn(String) -> String) -> String {
+  let mut str = "".to_owned();
+
+  for (prop_name, p) in object_type.properties.iter() {
+
+    if let Some(any_schema_type2_item) = resolve(&s, &p.to_owned().unbox()) {
+
+      if let SchemaKind::Type(any_schema_type2) = &any_schema_type2_item.schema_kind {
+
+        match any_schema_type2 {
+          Type::Array(x) => {
+            str.push_str(&indent_str(format!("{}: {}", prop_name.to_case(Case::Camel), "array()")));
+            // TODO: .of(scheme)
+            // min/max
+            if let Some(minimum) = x.min_items {
+              str.push_str(&format!(".min({})", minimum));
+            }
+            if let Some(maximum) = x.max_items {
+              str.push_str(&format!(".max({})", maximum));
+            }
+          },
+          Type::Boolean{} => {
+            str.push_str(&indent_str(format!("{}: {}", prop_name.to_case(Case::Camel), "bool()")));
+          },
+          Type::Integer(x) => {
+            str.push_str(&indent_str(format!("{}: {}", prop_name.to_case(Case::Camel), "number().integer()")));
+            // min/max
+            if let Some(minimum) = x.minimum {
+              str.push_str(&format!(".min({})", minimum));
+            }
+            if let Some(maximum) = x.maximum {
+              str.push_str(&format!(".max({})", maximum));
+            }
+          },
+          Type::Number(x) => {
+            str.push_str(&indent_str(format!("{}: {}", prop_name.to_case(Case::Camel), "number()")));
+            // min/max
+            if let Some(minimum) = x.minimum {
+              str.push_str(&format!(".min({})", minimum));
+            }
+            if let Some(maximum) = x.maximum {
+              str.push_str(&format!(".max({})", maximum));
+            }
+          },
+          Type::Object(x) => {
+            str.push_str(&indent_str(format!("{}: {}", prop_name.to_case(Case::Camel), "object({\n")));
+            str.push_str(&write_object_type(&s, config, x, indent_str_curry(indent_str(FIELD_INDENTS.to_owned()))));
+            str.push_str(&indent_str("})".to_owned()));
+          },
+          Type::String(x) => {
+            let mut type_name = "string".to_owned();
+            // type
+            if let VariantOrUnknownOrEmpty::Item(fmt_item) = &x.format {
+              match fmt_item {
+                StringFormat::Date | StringFormat::DateTime => {
+                  type_name = "date".to_owned();
+                },
+                _ => {},
+              }
+            }
+            str.push_str(&indent_str(format!("{}: {}()", prop_name.to_case(Case::Camel), type_name)));
+            // min/max
+            if let Some(minimum) = x.min_length {
+              str.push_str(&format!(".min({})", minimum));
+            }
+            if let Some(maximum) = x.max_length {
+              str.push_str(&format!(".max({})", maximum));
+            }
+            // matches (from pattern)
+            if let Some(pattern) = &x.pattern {
+              str.push_str(&format!(".matches(new RegExp(\"{}\"))", pattern));
+            }
+
+            // format
+            if let VariantOrUnknownOrEmpty::Unknown(fmt_name) = &x.format {
+              if fmt_name == "email" {
+                str.push_str(&format!(".{}()", fmt_name));
+              }
+            }
+          },
+        }
+
+        // [optional] label (from description)
+        if let Some(_) =  config.get_boolean("description_as_label") {
+          if let Some(description) = &any_schema_type2_item.schema_data.description {
+            str.push_str(&format!(".label('{}')", description));
+          }
+        }
+
+        // required/optional
+        if object_type.required.iter().any(|pn| pn == prop_name) {
+          str.push_str(".required()");
+        } else {
+          str.push_str(".optional()");
+        }
+
+        // end
+        str.push_str(",\n");
+      }
+    }
+  }
+
+  return str;
+}
+
+
+static RE_REF: Lazy<Regex> = Lazy::new(|| {
+  Regex::new("^(?P<source>[^#]*)#/components/(?P<type>[^/]+)/(?P<name>.+)$").unwrap()
+});
+
+fn resolve<'a>(s: &'a OpenAPI, ri: &'a ReferenceOr<Schema>) -> Option<&'a Schema> {
+    match ri {
+      ReferenceOr::Item(i) => Some(i),
+      ReferenceOr::Reference { reference } => {
+            let parts = RE_REF.captures(&reference).unwrap();
+
+            // find item which $ref points to
+            for a in &s.components {
+              for (schema_name, or) in a.schemas.iter() {
+                if &parts["name"] == schema_name {
+                  return resolve(s,or);
+                }
+              }
+            }
+          
+            return None;
+        }
+    }
+}
+
+fn indent_str_curry(indent: String) -> impl Fn(String) -> String {
+  move |str: String| {
+    format!("{}{}", indent, str)
+  }
 }
