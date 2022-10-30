@@ -1,8 +1,8 @@
 # openapi-yup-generator
 
-**This package is under heavy development and will change some specifications.**
+CLI tool for generating [yup](https://github.com/jquense/yup) definitions from openapi3.yaml
 
-CLI tool for generating yup definitions from openapi3.yaml
+Supports Openapi v3.0.x ([depends on openapiv3 library](https://github.com/glademiller/openapiv3#openapi-v3-))
 
 # Installation
 
@@ -37,3 +37,7 @@ place `openapi-yup-generator-config.jsonc` on your working directory
   // "out": "yup-defs.js",
 }
 ```
+
+# Note
+
+currently not all yup definitions are supported. feel free to send PR or issue :)
