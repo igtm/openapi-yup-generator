@@ -6,9 +6,16 @@ Supports Openapi v3.0.x ([depends on openapiv3 library](https://github.com/glade
 
 # Installation
 
+### curl
 
 ```sh
 sudo curl -sfL https://raw.githubusercontent.com/igtm/openapi-yup-generator/master/install.sh | sudo sh -s -- -b=/usr/local/bin
+```
+
+### brew
+
+```sh
+brew install igtm/tap/openapi-yup-generator
 ```
 
 You can also download old version binary from [release](https://github.com/igtm/openapi-yup-generator/releases).
