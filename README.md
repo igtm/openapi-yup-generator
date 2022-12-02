@@ -8,7 +8,7 @@ Supports Openapi v3.0.x ([depends on openapiv3 library](https://github.com/glade
 
 
 ```sh
-curl -sfL https://raw.githubusercontent.com/igtm/openapi-yup-generator/master/install.sh | sudo sh -s -- -b=/usr/local/bin
+sudo curl -sfL https://raw.githubusercontent.com/igtm/openapi-yup-generator/master/install.sh | sudo sh -s -- -b=/usr/local/bin
 ```
 
 You can also download old version binary from [release](https://github.com/igtm/openapi-yup-generator/releases).
