@@ -169,8 +169,6 @@ fn get_str_from_schema(s: &OpenAPI, config: &JsonObject, schema: &Schema, indent
           // required/optional
           if x.required.iter().any(|pn| pn == prop_name) {
             str.push_str(".required()");
-          } else {
-            str.push_str(".optional()");
           }
 
           // end
