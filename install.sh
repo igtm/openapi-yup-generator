@@ -74,7 +74,7 @@ arch=$(get_arch)
 # latest version: (eg: v1.0.0)
 latest_semver=$(
     command curl -sSf ${githubUrl}/${owner}/${repo}/releases |
-    command grep -o -E "\/${owner}\/${repo}\/tree\/(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
+    command grep -o -E "/${owner}/${repo}/tree/(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
     command grep -o -E "(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
     command head -n 1
 )
