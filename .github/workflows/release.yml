@@ -1,27 +1,63 @@
-on:
-  release:
-    types: [created]
+on: 
+  push:
+    tags:
+      - "v*.*.*"
 
 jobs:
   release:
     name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-pc-windows-gnu
-            archive: tar.gz
-          - target: x86_64-unknown-linux-musl
-            archive: tar.gz
-          - target: x86_64-apple-darwin
-            archive: tar.gz
+          # @see https://doc.rust-lang.org/nightly/rustc/platform-support.html
+
+          # 64-bit Linux (kernel 3.2+, glibc 2.17+)
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          # ARM64 Linux (kernel 4.1, glibc 2.17+)
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          # 64-bit MSVC (Windows 7+)
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          # 64-bit macOS (10.7+, Lion+)
+          - os: macOS-latest
+            target: x86_64-apple-darwin
+          # ARM64 macOS (11.0+, Big Sur+)
+          - os: macOS-latest
+            target: aarch64-apple-darwin
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@master
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.3.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions-rs/toolchain@v1
         with:
-          RUSTTARGET: ${{ matrix.target }}
-          ARCHIVE_TYPES: ${{ matrix.archive }}
+          toolchain: stable
+          target: ${{ matrix.target }}
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target ${{ matrix.target }}
+      - name: Run build
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            mv target/${{ matrix.target }}/release/openapi-yup-generator.exe target/${{ matrix.target }}/release/openapi-yup-generator
+          fi
+      - name: Compress action step
+        uses: a7ul/tar-action@v1.1.0
+        id: compress
+        with:
+          command: c
+          cwd: ./target/${{ matrix.target }}/release/
+          files: |
+            openapi-yup-generator
+          outPath: openapi-yup-generator_${{github.ref_name}}_${{ matrix.target }}.tar.gz
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          files: openapi-yup-generator_${{github.ref_name}}_${{ matrix.target }}.tar.gz
