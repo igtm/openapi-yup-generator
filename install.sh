@@ -60,6 +60,10 @@ for i in "$@"; do
             executable_folder="${i#*=}"
             shift # past argument=value
         ;;
+        -v=*)
+            version="${i#*=}"
+            shift # past argument=value
+        ;;
         *)
             # unknown option
         ;;
@@ -71,19 +75,22 @@ mkdir -p ${downloadFolder} # make sure download folder exists
 os=$(get_os)
 arch=$(get_arch)
 
-# latest version: (eg: v1.0.0)
-latest_semver=$(
-    command curl -sSf ${githubUrl}/${owner}/${repo}/releases |
-    command grep -o -E "/${owner}/${repo}/tree/(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
-    command grep -o -E "(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
-    command head -n 1
-)
-if [[ ! "$latest_semver" ]]; then exit 1; fi
+# if not specified
+if [[ ! "$version" ]]; then
+    # latest version: (eg: v1.0.0)
+    version=$(
+        command curl -sSf ${githubUrl}/${owner}/${repo}/releases |
+        command grep -o -E "/${owner}/${repo}/tree/(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
+        command grep -o -E "(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
+        command head -n 1
+    )
+    if [[ ! "$version" ]]; then exit 1; fi
+fi
 
 
-file_name="${exe_name}_${latest_semver}_${arch}-${os}.tar.gz" # the file name should be download
+file_name="${exe_name}_${version}_${arch}-${os}.tar.gz" # the file name should be download
 downloaded_file="${downloadFolder}/${file_name}" # the file path should be download
-asset_uri="${githubUrl}/${owner}/${repo}/releases/download/${latest_semver}/${file_name}"
+asset_uri="${githubUrl}/${owner}/${repo}/releases/download/${version}/${file_name}"
 
 echo "[1/3] Download ${asset_uri} to ${downloadFolder}"
 rm -f ${downloaded_file}

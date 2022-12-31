@@ -12,6 +12,12 @@ Supports Openapi v3.0.x ([depends on openapiv3 library](https://github.com/glade
 sudo curl -sfL https://raw.githubusercontent.com/igtm/openapi-yup-generator/master/install.sh | sudo sh -s -- -b=/usr/local/bin
 ```
 
+if you want to download old version, pass `-v` argument.
+
+```sh
+sudo curl -sfL https://raw.githubusercontent.com/igtm/openapi-yup-generator/master/install.sh | sudo sh -s -- -b=/usr/local/bin -v=v0.0.7
+```
+
 ### brew
 
 ```sh
