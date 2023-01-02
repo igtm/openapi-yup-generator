@@ -76,7 +76,7 @@ os=$(get_os)
 arch=$(get_arch)
 
 # if not specified
-if [[ ! "$version" ]]; then
+if [ -z "$version" ]; then
     # latest version: (eg: v1.0.0)
     version=$(
         command curl -sSf ${githubUrl}/${owner}/${repo}/releases |
@@ -84,7 +84,7 @@ if [[ ! "$version" ]]; then
         command grep -o -E "(v[0-9]+\.){1}[0-9]+(\.[0-9]+)?" |
         command head -n 1
     )
-    if [[ ! "$version" ]]; then exit 1; fi
+    if [ -z "$version" ]; then exit 1; fi
 fi
 
 
