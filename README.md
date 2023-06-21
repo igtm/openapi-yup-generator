@@ -48,6 +48,7 @@ place `openapi-yup-generator-config.jsonc` on your working directory
   // "description_as_label": false,
   // "file": "openapi3.yaml",
   // "out": "yup-defs.js",
+  // "case": "snake" // or "camel"
 }
 ```
 
