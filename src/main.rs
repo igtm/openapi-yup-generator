@@ -168,11 +168,22 @@ fn get_str_from_schema(
                 for (prop_name, p) in x.properties.iter() {
                     let nested_indent_str = &indent_str_curry(indent_str(FIELD_INDENTS.to_owned()));
 
+                    // [optional] case
+                    let mut cased_prop_name = prop_name.to_owned();
+                    if let Some(i) = config.get_string("case") {
+                        match i.to_string().as_str() {
+                            "camel" => {
+                                cased_prop_name = prop_name.to_case(Case::Camel);
+                            }
+                            "snake" => {
+                                cased_prop_name = prop_name.to_case(Case::Snake);
+                            }
+                            _ => {}
+                        }
+                    }
+
                     // prop
-                    str.push_str(&nested_indent_str(format!(
-                        "{}: ",
-                        prop_name.to_case(Case::Camel)
-                    )));
+                    str.push_str(&nested_indent_str(format!("{}: ", cased_prop_name)));
 
                     if let Some(any_schema_type2_item) = resolve(s, &p.to_owned().unbox()) {
                         str.push_str(&get_str_from_schema(
